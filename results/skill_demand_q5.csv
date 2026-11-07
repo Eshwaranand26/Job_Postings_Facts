@@ -1,0 +1,26 @@
+skills,skill_id,avg_salary,demand_count
+sql,0,96435,398
+excel,181,86419,256
+python,1,101512,236
+tableau,182,97978,230
+r,5,98708,148
+power bi,183,92324,110
+sas,186,93707,63
+sas,7,93707,63
+powerpoint,196,88316,58
+looker,185,103855,49
+word,188,82941,48
+snowflake,80,111578,37
+oracle,79,100964,37
+sql server,61,96191,35
+azure,74,105400,34
+aws,76,106440,32
+sheets,192,84130,32
+flow,215,98020,28
+go,8,97267,27
+vba,22,93845,24
+spss,199,85293,24
+hadoop,97,110888,22
+jira,233,107931,20
+javascript,9,91805,20
+sharepoint,195,89027,18

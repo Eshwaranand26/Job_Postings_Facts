@@ -14,6 +14,7 @@ WITH skills_demand AS (
     AND jp.salary_year_avg IS NOT NULL
   GROUP BY sd.skill_id, sd.skills
 ),
+-- note: this salary part doesn't filter work_from_home, so avg salary is across all Data Analyst jobs (remote + onsite)
 averaged_salary AS (
   SELECT
     sd.skill_id,
@@ -190,3 +191,4 @@ LIMIT 25;
     "demand_count": "18"
   }
 ]
+*/

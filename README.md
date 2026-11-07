@@ -1,71 +1,120 @@
-# Job_Postings_Facts
+# Job Postings Facts: SQL Data Analytics Project
 
-Overview
---------
-This repository contains SQL DDL, CSV sample data, and analytic query files for the "Job_Postings_Facts" dataset. The scripts are written for PostgreSQL (ANSI-safe SQL) and are idempotent where possible.
+I used SQL to explore ~788k real job postings from 2023 and answer one question: **if you want a Data Analyst job (especially a remote one), which skills pay the most and which are asked for the most?**
 
-Contents
---------
-- `databases/all_folders/sql_load/1_create_database.sql` - Database creation script (note: may require manual adjustments for your environment).
-- `databases/all_folders/sql_load/2_create_tables.sql` - Idempotent CREATE TABLE statements for `company_dim`, `skills_dim`, `job_postings_fact`, and `skills_job_dim`.
-- `databases/all_folders/sql_load/3_modify_tables.sql` - CSV load instructions (uses client-side `\copy` recommended for local psql runs).
-- `databases/all_folders/csv_files/` - CSV source files used to populate the schema (company_dim.csv, job_postings_fact.csv, skills_dim.csv, skills_job_dim.csv).
-- `Project/` - Analysis queries (named like `top_paying_jobs_q1.sql`, `skills_for_top_jobs_q2.sql`, etc.). Each query file includes an Analysis Brief and sample JSON output stored as SQL block comments so files remain runnable.
+Everything is written in PostgreSQL. The dataset and question ideas come from Luke Barousse's *SQL for Data Analytics* course on YouTube. I wrote and ran the queries myself, then exported the results and made the charts below.
 
-Quick start (PostgreSQL + psql)
--------------------------------
-1. Create the database (run from a superuser or an account with CREATE DATABASE privileges):
+## The data
 
-   psql -c "CREATE DATABASE sql_course;"
+There are four tables in a simple star schema: one fact table in the middle, with dimension tables around it.
 
-2. Run the DDL to create tables (from repository root):
+| Table | What's in it | Rows |
+|---|---|---|
+| `job_postings_fact` | One row per job posting: title, location, remote or not, salary, date | 787,686 |
+| `company_dim` | Company name and links | 140,033 |
+| `skills_dim` | Skill name and its type (programming, cloud, analyst_tools...) | 259 |
+| `skills_job_dim` | Which skills each job asks for (a job-to-skill bridge table) | 3,669,604 |
 
-   psql -d sql_course -f databases/all_folders/sql_load/2_create_tables.sql
+```
+company_dim ──< job_postings_fact ──< skills_job_dim >── skills_dim
+```
 
-3. Load CSVs using psql's client-side `\copy` (run from the repository root so paths resolve):
+## Questions and what I found
 
-   # Example: load company_dim
-   psql -d sql_course -c "\copy company_dim FROM 'databases/all_folders/csv_files/company_dim.csv' WITH (FORMAT csv, HEADER true, DELIMITER ',');"
+### Q1: What are the top-paying remote Data Analyst jobs?
+File: [`top_paying_jobs_q1.sql`](top_paying_jobs_q1.sql)
 
-   # Repeat for skills_dim, skills_job_dim, and job_postings_fact
+I filtered to Data Analyst jobs with location "Anywhere" and a listed salary, sorted by salary, and kept the top 10.
 
-Notes on COPY vs \copy
-----------------------
-- `COPY` runs on the PostgreSQL server and requires the server process to have direct file access. This often causes permission errors when the CSVs are on your local filesystem and the server runs elsewhere.
-- `\copy` is a psql client command that streams the file from your client into the server. It works when you run psql locally and is the recommended method for these repository scripts.
+![Q1](charts/q1_top_paying_jobs.png)
 
-Running queries and exporting JSON
-----------------------------------
-- The `Project/` queries are selectable SQL files. To run a single query and get JSON output from psql:
+- Salaries in the top 10 range from **$184k to $650k**.
+- The $650k Mantys posting looks like an outlier, probably a data entry mistake. Without it the top is $336k (Director of Analytics, Meta).
+- Most of these are senior titles (Director, Principal, Associate Director), not entry-level "Data Analyst" roles.
 
-   psql -d sql_course -f Project/top_paying_jobs_q1.sql -t -A -F"," --no-align
+### Q2: What skills do those top-paying jobs ask for?
+File: [`skills_for_top_jobs_q2.sql`](skills_for_top_jobs_q2.sql)
 
-  To produce a JSON array of rows directly from a SELECT, use:
+I took the top 10 jobs from Q1 in a CTE and joined them to the skills tables. Only 8 of the 10 have skills listed.
 
-   psql -d sql_course -c "SELECT json_agg(row_to_json(t)) FROM ( <your select here> ) t;"
+![Q2 skills](charts/q2_skill_frequency.png)
 
-Repository conventions and tips
-------------------------------
-- DDL scripts use `IF NOT EXISTS` for idempotency so you can re-run them during development.
-- Sample outputs are kept as SQL block comments inside query files to keep the files runnable while preserving example results.
-- Large CSVs (e.g., `job_postings_fact.csv`) may be slow to import. Consider loading a subset when iterating locally.
+![Q2 skill types](charts/q2_skill_types_pie.png)
 
-Troubleshooting
----------------
-- If you hit a permission error with `COPY`: switch to `\copy` as shown above.
-- If a table already exists and you want to recreate it, drop it manually before running the DDL:
+- **SQL is in all 8** jobs, Python in 7, Tableau in 6.
+- One third of the skills asked for are programming languages. Next come analyst tools (Excel, Tableau, Power BI) and cloud (Snowflake, Azure, AWS).
 
-   psql -d sql_course -c "DROP TABLE IF EXISTS job_postings_fact CASCADE;"
+### Q3: What are the most in-demand skills for remote Data Analysts?
+File: [`optimal_skills_q3.sql`](optimal_skills_q3.sql)
 
-- For encoding issues, set client encoding in psql before `\copy`ing:
+This counts how often each skill appears across all remote Data Analyst postings and keeps the top 5.
 
-   psql -d sql_course -c "SET client_encoding = 'UTF8';"
+![Q3](charts/q3_skill_demand.png)
 
-Next steps (suggested)
-----------------------
-- Add a small sample dataset or a filtered subset of `job_postings_fact.csv` for faster local testing.
-- Add a `Makefile` or `task` scripts to automate database creation, loading, and running all Project queries.
+- SQL is far ahead (7,291 postings), followed by Excel, Python, Tableau and Power BI.
+- So the basic toolkit is SQL plus Excel plus one programming language plus one BI tool.
 
-License
--------
-This repository contains example data and code for learning and analysis. No license file is included—add one if you plan to publish.
+### Q4: Which skills are linked to the highest salaries?
+File: [`skills_by_avg_salary_q4.sql`](skills_by_avg_salary_q4.sql)
+
+This takes the average salary for each skill across Data Analyst jobs that list a salary, top 25.
+
+![Q4](charts/q4_top_salary_skills.png)
+
+- **svn ($400k)** comes from just **1 posting**, so I'd ignore it.
+- The rest of the list is mostly engineering-side skills: cloud and devops (Terraform, GitLab, Kafka, Airflow) and ML (PyTorch, Keras, TensorFlow). Analysts who can also handle data engineering or ML get paid more.
+- This query doesn't count how many postings each skill has, so rare skills can rank high. That's why Q5 combines demand and salary.
+
+### Q5: Which skills are both in demand and well paid (the "optimal" skills)?
+File: [`skill_demand_q5.sql`](skill_demand_q5.sql)
+
+There are two CTEs, one for demand count and one for average salary per skill. I joined them and sorted by demand first.
+
+![Q5](charts/q5_demand_vs_salary.png)
+
+- **SQL and Python** sit in the best spot: high demand and ~$96-102k average.
+- **Excel** is in high demand but pays less (~$86k). It's needed, but it won't get you a higher salary by itself.
+- Cloud tools (**Snowflake, AWS, Azure**) and **Looker** pay $104-112k with lower demand. These are good skills to add once the basics are covered.
+- Small things I noticed: `sas` shows up twice because it has two skill IDs in `skills_dim`, and the salary CTE doesn't filter for remote jobs (I left a comment in the file about this).
+
+## Overall takeaways
+
+1. Learn **SQL first**. It's the most asked-for skill, and every top-paying job wants it.
+2. Then **Python** and one **BI tool** (Tableau or Power BI).
+3. To earn more, add **cloud** skills (Snowflake, AWS, Azure).
+4. Be careful with averages built on just a few postings, like the svn result (1 posting) and the $650k job.
+
+## How to run it
+
+You need PostgreSQL (I used v18) and the four CSV files from the course.
+
+```bash
+# 1. create the database
+psql -d postgres -f sql_load/1_create_database.sql
+
+# 2. create the tables
+psql -d sql_course -f sql_load/2_create_tables.sql
+
+# 3. load the CSVs (edit the file paths inside this script to where your CSVs are)
+psql -d sql_course -f sql_load/3_modify_tables.sql
+
+# 4. run any question
+psql -d sql_course -f top_paying_jobs_q1.sql
+```
+
+The CSVs are too big for GitHub (job_postings_fact.csv is ~130 MB), so they're not in this repo. The query outputs I got are saved in [`results/`](results/) and the charts in [`charts/`](charts/).
+
+## Files
+
+```
+sql_load/                     setup scripts (database, tables, CSV load)
+top_paying_jobs_q1.sql        Q1
+skills_for_top_jobs_q2.sql    Q2
+optimal_skills_q3.sql         Q3
+skills_by_avg_salary_q4.sql   Q4
+skill_demand_q5.sql           Q5
+results/                      query outputs as CSV
+charts/                       charts used in this README
+```
+
+Tools: PostgreSQL, psql, VS Code. Charts made in Python (pandas and matplotlib) from the exported results.
