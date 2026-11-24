@@ -4,6 +4,8 @@ I used SQL to explore ~788k real job postings from 2023 and answer one question:
 
 Everything is written in PostgreSQL. The dataset and question ideas come from Luke Barousse's *SQL for Data Analytics* course on YouTube. I wrote and ran the queries myself, then exported the results and made the charts below.
 
+**Interactive dashboard:** I also put the demand and salary results for 24 skills into a [Tableau Public dashboard](https://public.tableau.com/app/profile/eswaranand.chowhan.palthiya/viz/DataAnalystSkills-DemandvsSalary/DataAnalystSkillsDemandvsSalary2023jobpostingsanalysedwithSQL) (made from `results/skill_demand_q5.csv`, with the duplicate `sas` row removed).
+
 ## The data
 
 There are four tables in a simple star schema: one fact table in the middle, with dimension tables around it.
